@@ -7,6 +7,7 @@ import { authRoutes } from './routes/auth.routes';
 import { linkRoutes, publicRoutes } from './routes/link.routes';
 import { userRoutes } from './routes/user.routes';
 import { adminRoutes } from './routes/admin.routes';
+import { startClickBufferWorker } from './utils/click-buffer';
 
 dotenv.config();
 
@@ -37,6 +38,9 @@ fastify.register(publicRoutes);
 const start = async () => {
   try {
     const port = Number(process.env.PORT) || 5000;
+    
+    startClickBufferWorker(); 
+
     await fastify.listen({ port, host: '0.0.0.0' });
     console.log(`🚀 Raya API is gliding on http://localhost:${port}`);
   } catch (err) {

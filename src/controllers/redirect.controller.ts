@@ -1,11 +1,11 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { prisma } from '../config/prisma';
-import { redis } from '../config/redis';
 import { captureAnalytics } from '../utils/analytics';
+import { incrementClickCount } from '../utils/click-buffer';
 
 export const redirectHandler = async (request: FastifyRequest<{ Params: { slug: string }; Querystring: { pw?: string } }>, reply: FastifyReply) => {
   const { slug } = request.params;
-  const { pw } = request.query; // Optional password from query string
+  const { pw } = request.query; 
 
   const link = await prisma.link.findUnique({ where: { slug } });
 
@@ -18,9 +18,7 @@ export const redirectHandler = async (request: FastifyRequest<{ Params: { slug: 
 
   // 2. Check Password (Pro Feature)
   if (link.password) {
-    // If no password provided or it doesn't match
     if (!pw || pw !== link.password) {
-      // We return a specific code so the Frontend knows to show the Password Modal
       return reply.status(403).send({ 
         message: 'Protected link', 
         isProtected: true,
@@ -31,12 +29,10 @@ export const redirectHandler = async (request: FastifyRequest<{ Params: { slug: 
   }
 
   // 3. High-Speed Redirect with Analytics
-  captureAnalytics(request, link.id).catch(console.error);
+  // Buffer the click in Redis instead of direct Prisma increment
+  incrementClickCount(link.id).catch(console.error);
   
-  prisma.link.update({ 
-    where: { id: link.id }, 
-    data: { clicks: { increment: 1 } } 
-  }).catch(console.error);
+  captureAnalytics(request, link.id).catch(console.error);
 
   return reply.redirect(link.originalUrl);
 };
